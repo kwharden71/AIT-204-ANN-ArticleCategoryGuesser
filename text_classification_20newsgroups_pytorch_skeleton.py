@@ -4,6 +4,7 @@
 import os
 import random
 import numpy as np
+import string
 
 # ---- Reproducibility (optional but recommended) ----
 SEED = 42
@@ -22,7 +23,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 # =========================
 # Load Dataset
 # =========================
+print("Downloading Data Set")
 data = fetch_20newsgroups(subset='all', remove=('headers', 'footers', 'quotes'))
+print("Dataset Downloaded")
 X_raw, y = data.data, data.target
 num_classes = len(data.target_names)
 
@@ -31,7 +34,7 @@ num_classes = len(data.target_names)
 #  - Convert to lowercase, remove punctuation if desired
 #  - Tokenization is handled by TfidfVectorizer, but you can add custom steps if needed
 # =========================
-
+X_raw = [''.join(char.lower() if char not in string.punctuation else ' ' for char in text) for text in X_raw]
 # =========================
 # Convert Text Data to Numerical Format
 # =========================
@@ -81,20 +84,19 @@ class NewsMLP(nn.Module):
         super().__init__()
         # TODO: Define layers
         # Example (commented): 
-        # self.net = nn.Sequential(
-        #     nn.Linear(input_dim, 512),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(512, 256),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.3),
-        #     nn.Linear(256, num_classes)
-        # )
-        self.net = nn.Identity()  # <-- replace with real layers
-
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_classes)
+        )
     def forward(self, x):
         # TODO: Forward pass using your defined layers
-        return self.net(x)
+
+        return self.net.forward(x)
 
 input_dim = X_train_t.shape[1]
 model = NewsMLP(input_dim=input_dim, num_classes=num_classes).to(device)
@@ -106,8 +108,8 @@ model = NewsMLP(input_dim=input_dim, num_classes=num_classes).to(device)
 # Example (commented):
 # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 # criterion = nn.CrossEntropyLoss()
-optimizer = None     # <-- replace
-criterion = None     # <-- replace
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)     # <-- replace
+criterion = nn.CrossEntropyLoss()     # <-- replace
 scheduler = None     # <-- optional
 
 # =========================
@@ -121,28 +123,28 @@ def train(num_epochs=10):
     assert optimizer is not None and criterion is not None, "Set optimizer/criterion before training."
     for epoch in range(num_epochs):
         model.train()
-        # running_loss, running_correct, total = 0.0, 0, 0
+        running_loss, running_correct, total = 0.0, 0, 0
         for xb, yb in train_loader:
             xb, yb = xb.to(device), yb.to(device)
 
-            # optimizer.zero_grad()
-            # logits = model(xb)
-            # loss = criterion(logits, yb)
-            # loss.backward()
-            # optimizer.step()
+            optimizer.zero_grad()
+            logits = model(xb)
+            loss = criterion(logits, yb)
+            loss.backward()
+            optimizer.step()
 
-            # # (optional) metrics
-            # preds = logits.argmax(dim=1)
-            # running_loss += loss.item() * xb.size(0)
-            # running_correct += (preds == yb).sum().item()
-            # total += xb.size(0)
+            # (optional) metrics
+            preds = logits.argmax(dim=1)
+            running_loss += loss.item() * xb.size(0)
+            running_correct += (preds == yb).sum().item()
+            total += xb.size(0)
 
-        # epoch_loss = running_loss / max(1, total)
-        # epoch_acc  = running_correct / max(1, total)
-        # print(f"Epoch {epoch+1}/{num_epochs} | loss={epoch_loss:.4f} acc={epoch_acc:.4f}")
+        epoch_loss = running_loss / max(1, total)
+        epoch_acc  = running_correct / max(1, total)
+        print(f"Epoch {epoch+1}/{num_epochs} | loss={epoch_loss:.4f} acc={epoch_acc:.4f}")
 
-        # if scheduler is not None:
-            # scheduler.step(epoch_loss)  # or any metric you prefer
+        if scheduler is not None:
+            scheduler.step(epoch_loss)  # or any metric you prefer
 
 # =========================
 # Evaluate the Model
@@ -152,30 +154,30 @@ def train(num_epochs=10):
 # - with torch.no_grad(): forward on test_loader, compute accuracy & classification report if desired
 def evaluate():
     model.eval()
-    # all_preds, all_targets = [], []
+    all_preds, all_targets = [], []
     with torch.no_grad():
         for xb, yb in test_loader:
             xb, yb = xb.to(device), yb.to(device)
-            # logits = model(xb)
-            # preds = logits.argmax(dim=1)
-            # all_preds.append(preds.cpu().numpy())
-            # all_targets.append(yb.cpu().numpy())
+            logits = model(xb)
+            preds = logits.argmax(dim=1)
+            all_preds.append(preds.cpu().numpy())
+            all_targets.append(yb.cpu().numpy())
 
-    # import numpy as np
-    # y_pred = np.concatenate(all_preds)
-    # y_true = np.concatenate(all_targets)
+    import numpy as np
+    y_pred = np.concatenate(all_preds)
+    y_true = np.concatenate(all_targets)
 
-    # from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-    # print("Test Accuracy:", accuracy_score(y_true, y_pred))
-    # print(classification_report(y_true, y_pred, target_names=data.target_names))
-    # print("Confusion Matrix:\n", confusion_matrix(y_true, y_pred))
+    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+    print("Test Accuracy:", accuracy_score(y_true, y_pred))
+    print(classification_report(y_true, y_pred, target_names=data.target_names))
+    print("Confusion Matrix:\n", confusion_matrix(y_true, y_pred))
 
 if __name__ == "__main__":
     # ===== Fill these before running =====
-    # optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    # criterion = nn.CrossEntropyLoss()
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
 
-    # train(num_epochs=10)
-    # evaluate()
+    train(num_epochs=10)
+    evaluate()
     pass
