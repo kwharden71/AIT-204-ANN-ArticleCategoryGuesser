@@ -6,8 +6,8 @@ st.set_page_config(page_title="20 Newsgroups Classifier", layout="wide")
 
 @st.cache_resource  # load once per process
 def load_resources():
-    vectorizer = joblib.load("vectorizer.pkl")
-    with open("label_names.json") as f:
+    vectorizer = joblib.load(".\\convert-to-stremlit-app\\vectorizer.pkl")
+    with open(".\\convert-to-stremlit-app\\label_names.json") as f:
         label_names = json.load(f)
 
     class NewsMLP(nn.Module):
@@ -24,7 +24,7 @@ def load_resources():
 
     model = NewsMLP(input_dim=vectorizer.max_features or len(vectorizer.vocabulary_), 
                     num_classes=len(label_names))
-    model.load_state_dict(torch.load("model_state_dict.pt", map_location="cpu"))
+    model.load_state_dict(torch.load(".\\convert-to-stremlit-app\\model_state_dict.pt", map_location="cpu"))
     model.eval()
     return vectorizer, label_names, model
 
